@@ -62,6 +62,7 @@ class RouteDetailsClient:
             '15': 'Route 15 - Colfax Avenue',
             '16': 'Route 16 - 16th Street Mall',
             '20': 'Route 20 - East Colfax',
+            'AB1': 'Route AB1 - 18th Street',
             'FF1': 'Flatiron Flyer - US 36',
             'FREE': 'Free MetroRide - 16th Street',
             'MALL': '16th Street Mall Ride'
@@ -96,7 +97,8 @@ class RouteDetailsClient:
             '15': 'Major east-west route along Colfax Avenue',
             '16': 'Downtown circulator connecting major attractions',
             'FREE': 'Free shuttle service along 16th Street Mall',
-            'FF1': 'Express bus service along US 36 corridor to Boulder'
+            'FF1': 'Express bus service along US 36 corridor to Boulder',
+            'AB1': 'Local bus route serving downtown Denver along 18th Street corridor'
         }
         return descriptions.get(route_id, f'RTD bus route serving the Denver metro area')
     
@@ -128,6 +130,16 @@ class RouteDetailsClient:
                 {'stop_id': '204', 'name': '16th & California', 'sequence': 4, 'lat': 39.7489, 'lng': -104.9910},
                 {'stop_id': '205', 'name': '16th & Stout', 'sequence': 5, 'lat': 39.7487, 'lng': -104.9889},
                 {'stop_id': '206', 'name': 'Civic Center Station', 'sequence': 6, 'lat': 39.7447, 'lng': -104.9888},
+            ],
+            'AB1': [
+                {'stop_id': 'AB1_1', 'name': 'Union Station', 'sequence': 1, 'lat': 39.7539, 'lng': -105.0002},
+                {'stop_id': 'AB1_2', 'name': '18th & Stout', 'sequence': 2, 'lat': 39.7487, 'lng': -104.9889},
+                {'stop_id': 'AB1_3', 'name': '18th & Broadway', 'sequence': 3, 'lat': 39.7487, 'lng': -104.9877},
+                {'stop_id': 'AB1_4', 'name': '18th & Lincoln', 'sequence': 4, 'lat': 39.7487, 'lng': -104.9850},
+                {'stop_id': 'AB1_5', 'name': '18th & Grant', 'sequence': 5, 'lat': 39.7487, 'lng': -104.9820},
+                {'stop_id': 'AB1_6', 'name': '18th & Logan', 'sequence': 6, 'lat': 39.7487, 'lng': -104.9780},
+                {'stop_id': 'AB1_7', 'name': '18th & Pennsylvania', 'sequence': 7, 'lat': 39.7487, 'lng': -104.9750},
+                {'stop_id': 'AB1_8', 'name': '18th & Pearl', 'sequence': 8, 'lat': 39.7487, 'lng': -104.9720},
             ]
         }
         
