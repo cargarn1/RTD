@@ -171,11 +171,23 @@ async function loadVehicles() {
                         </div>
                         <div class="journey-stop to">
                             <div class="stop-indicator"></div>
-                            <div class="stop-label">To: ${v.next_stop}</div>
+                            <div class="stop-label">Next: ${v.next_stop}</div>
+                            <div class="eta-badge-small">
+                                ⏱️ ${v.eta_minutes} min${v.eta_minutes !== 1 ? 's' : ''}
+                            </div>
                         </div>
-                    </div>
-                    <div class="eta-badge">
-                        ⏱️ ${v.eta_minutes} min${v.eta_minutes !== 1 ? 's' : ''}
+                        ${v.next_stop_2 ? `
+                        <div class="journey-arrow">
+                            <div class="arrow-line"></div>
+                        </div>
+                        <div class="journey-stop to-2">
+                            <div class="stop-indicator stop-indicator-2"></div>
+                            <div class="stop-label">Then: ${v.next_stop_2}</div>
+                            <div class="eta-badge-small">
+                                ⏱️ ${v.eta_minutes_2} min${v.eta_minutes_2 !== 1 ? 's' : ''}
+                            </div>
+                        </div>
+                        ` : ''}
                     </div>
                 </div>
                 ` : ''}
@@ -187,8 +199,14 @@ async function loadVehicles() {
                     </div>
                     ${v.distance_to_next ? `
                     <div class="detail-row">
-                        <span class="detail-label">📏 Distance to next:</span>
+                        <span class="detail-label">📏 Distance to ${v.next_stop}:</span>
                         <span class="detail-value">${v.distance_to_next.toFixed(2)} miles</span>
+                    </div>
+                    ` : ''}
+                    ${v.distance_to_next_2 && v.next_stop_2 ? `
+                    <div class="detail-row">
+                        <span class="detail-label">📏 Distance to ${v.next_stop_2}:</span>
+                        <span class="detail-value">${v.distance_to_next_2.toFixed(2)} miles</span>
                     </div>
                     ` : ''}
                     ${v.bearing ? `
@@ -484,6 +502,8 @@ setInterval(loadVehicles, 15000);
     align-items: center;
     justify-content: space-between;
     margin-bottom: 0.75rem;
+    flex-wrap: wrap;
+    gap: 0.5rem;
 }
 
 .journey-stop {
@@ -504,6 +524,15 @@ setInterval(loadVehicles, 15000);
 
 .journey-stop.to .stop-indicator {
     background-color: var(--secondary-color);
+}
+
+.stop-indicator-2 {
+    background-color: #f59e0b !important; /* Orange for second next stop */
+}
+
+.journey-stop.to-2 {
+    flex: 1;
+    min-width: 120px;
 }
 
 .stop-label {
@@ -546,6 +575,17 @@ setInterval(loadVehicles, 15000);
     font-weight: 600;
     font-size: 0.9rem;
     text-align: center;
+}
+
+.eta-badge-small {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    background-color: var(--secondary-color);
+    color: var(--white);
+    border-radius: 15px;
+    font-weight: 600;
+    font-size: 0.75rem;
+    margin-top: 0.25rem;
 }
 </style>
 {% endblock %}

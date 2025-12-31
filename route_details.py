@@ -243,7 +243,7 @@ class RouteDetailsClient:
     
     def find_nearest_stops(self, vehicle_lat: float, vehicle_lng: float, stops: List[Dict]) -> Dict:
         """
-        Find the previous and next stops for a vehicle
+        Find the previous and next two stops for a vehicle
         
         Args:
             vehicle_lat: Vehicle latitude
@@ -251,14 +251,17 @@ class RouteDetailsClient:
             stops: List of stops with lat/lng
         
         Returns:
-            Dictionary with last_stop, next_stop, and estimated time
+            Dictionary with last_stop, next_stop, next_stop_2, distances, and ETAs
         """
         if not stops:
             return {
                 'last_stop': None,
                 'next_stop': None,
+                'next_stop_2': None,
                 'distance_to_next': None,
-                'eta_minutes': None
+                'distance_to_next_2': None,
+                'eta_minutes': None,
+                'eta_minutes_2': None
             }
         
         # Find closest stop
@@ -279,23 +282,50 @@ class RouteDetailsClient:
         last_stop = stops[max(0, closest_stop_idx - 1)]
         next_stop = stops[min(len(stops) - 1, closest_stop_idx + 1)]
         
-        # Calculate distance to next stop
+        # Get second next stop (if available)
+        next_stop_2_idx = min(len(stops) - 1, closest_stop_idx + 2)
+        next_stop_2 = stops[next_stop_2_idx] if next_stop_2_idx > closest_stop_idx + 1 else None
+        
+        # Calculate distances
         distance_to_next = self.calculate_distance(
             vehicle_lat, vehicle_lng,
             next_stop['lat'], next_stop['lng']
         )
         
+        # Calculate distance to second next stop (if exists)
+        if next_stop_2:
+            # Distance from vehicle to first next stop, then to second next stop
+            distance_between_stops = self.calculate_distance(
+                next_stop['lat'], next_stop['lng'],
+                next_stop_2['lat'], next_stop_2['lng']
+            )
+            distance_to_next_2 = distance_to_next + distance_between_stops
+        else:
+            distance_to_next_2 = None
+        
         # Estimate arrival time (assuming average speed of 25 mph if not available)
         # This will be replaced with actual vehicle speed when available
         average_speed = 25  # mph
+        
+        # ETA to first next stop
         eta_hours = distance_to_next / average_speed
         eta_minutes = int(eta_hours * 60)
+        
+        # ETA to second next stop (if exists)
+        if distance_to_next_2:
+            eta_hours_2 = distance_to_next_2 / average_speed
+            eta_minutes_2 = int(eta_hours_2 * 60)
+        else:
+            eta_minutes_2 = None
         
         return {
             'last_stop': last_stop,
             'next_stop': next_stop,
+            'next_stop_2': next_stop_2,
             'distance_to_next': distance_to_next,
-            'eta_minutes': max(1, eta_minutes)  # At least 1 minute
+            'distance_to_next_2': distance_to_next_2,
+            'eta_minutes': max(1, eta_minutes),  # At least 1 minute
+            'eta_minutes_2': max(1, eta_minutes_2) if eta_minutes_2 else None
         }
     
     def enrich_vehicle_with_stop_info(self, vehicle: Dict, route_id: str) -> Dict:
@@ -331,6 +361,30 @@ class RouteDetailsClient:
         vehicle['next_stop'] = stop_info['next_stop']['name'] if stop_info['next_stop'] else 'End of Line'
         vehicle['distance_to_next'] = stop_info['distance_to_next']
         vehicle['eta_minutes'] = stop_info['eta_minutes']
+        
+        # Add second next stop information
+        if stop_info['next_stop_2']:
+            vehicle['next_stop_2'] = stop_info['next_stop_2']['name']
+            vehicle['distance_to_next_2'] = stop_info['distance_to_next_2']
+            vehicle['eta_minutes_2'] = stop_info['eta_minutes_2']
+        else:
+            vehicle['next_stop_2'] = None
+            vehicle['distance_to_next_2'] = None
+            vehicle['eta_minutes_2'] = None
+        
+        # Recalculate ETAs based on actual vehicle speed if available
+        if vehicle.get('speed') and vehicle['speed'] > 0:
+            # Speed is in m/s, convert to mph
+            speed_mph = vehicle['speed'] * 2.23694
+            if speed_mph > 5:  # Only use if moving reasonably
+                # Recalculate ETA to first stop
+                eta_hours = vehicle['distance_to_next'] / speed_mph
+                vehicle['eta_minutes'] = max(1, int(eta_hours * 60))
+                
+                # Recalculate ETA to second stop if exists
+                if vehicle.get('distance_to_next_2'):
+                    eta_hours_2 = vehicle['distance_to_next_2'] / speed_mph
+                    vehicle['eta_minutes_2'] = max(1, int(eta_hours_2 * 60))
         
         return vehicle
 
