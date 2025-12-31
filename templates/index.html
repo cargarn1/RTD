@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - RTD Transit Tracker{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="hero">
+        <h1>🚌 RTD Denver Transit Tracker</h1>
+        <p>Real-time tracking of buses and trains in the Denver metro area</p>
+    </div>
+
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon">🚌</div>
+            <div class="stat-number" id="total-vehicles">-</div>
+            <div class="stat-label">Active Vehicles</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">📍</div>
+            <div class="stat-number" id="total-routes">-</div>
+            <div class="stat-label">Active Routes</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">⏱️</div>
+            <div class="stat-number" id="last-update">-</div>
+            <div class="stat-label">Last Updated</div>
+        </div>
+        <div class="stat-card status-card">
+            <div class="stat-icon">✅</div>
+            <div class="stat-number">Live</div>
+            <div class="stat-label">System Status</div>
+        </div>
+    </div>
+
+    <div class="controls">
+        <div class="control-group">
+            <label for="route-filter">Filter by Route:</label>
+            <select id="route-filter" class="select-control">
+                <option value="">All Routes</option>
+            </select>
+        </div>
+        <button onclick="refreshData()" class="btn btn-primary">🔄 Refresh</button>
+        <button onclick="toggleAutoRefresh()" class="btn btn-secondary" id="auto-refresh-btn">
+            ▶️ Auto-Refresh
+        </button>
+    </div>
+
+    <div class="section">
+        <h2>Top Active Routes</h2>
+        <div id="top-routes" class="routes-grid">
+            <p class="loading">Loading...</p>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>Recent Vehicles</h2>
+        <div class="table-container">
+            <table class="data-table" id="vehicles-table">
+                <thead>
+                    <tr>
+                        <th>Route</th>
+                        <th>Vehicle ID</th>
+                        <th>Location</th>
+                        <th>Bearing</th>
+                        <th>Speed</th>
+                    </tr>
+                </thead>
+                <tbody id="vehicles-tbody">
+                    <tr><td colspan="5" class="loading">Loading vehicles...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+let autoRefresh = false;
+let refreshInterval = null;
+
+async function refreshData() {
+    const route = document.getElementById('route-filter').value;
+    const url = route ? `/api/vehicles?route=${route}` : '/api/vehicles';
+    
+    try {
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        if (data.success) {
+            updateStats(data);
+            updateTopRoutes(data.route_counts);
+            updateVehiclesTable(data.vehicles);
+            populateRouteFilter(data.routes);
+        }
+    } catch (error) {
+        console.error('Error fetching data:', error);
+    }
+}
+
+function updateStats(data) {
+    document.getElementById('total-vehicles').textContent = data.count;
+    document.getElementById('total-routes').textContent = Object.keys(data.route_counts).length;
+    document.getElementById('last-update').textContent = new Date().toLocaleTimeString();
+}
+
+function updateTopRoutes(routeCounts) {
+    const topRoutes = Object.entries(routeCounts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 8);
+    
+    const html = topRoutes.map(([route, count]) => `
+        <div class="route-card" onclick="filterByRoute('${route}')">
+            <div class="route-number">${route}</div>
+            <div class="route-count">${count} vehicles</div>
+        </div>
+    `).join('');
+    
+    document.getElementById('top-routes').innerHTML = html;
+}
+
+function updateVehiclesTable(vehicles) {
+    const tbody = document.getElementById('vehicles-tbody');
+    
+    if (vehicles.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5">No vehicles found</td></tr>';
+        return;
+    }
+    
+    const html = vehicles.slice(0, 20).map(v => `
+        <tr>
+            <td><span class="route-badge">${v.route_id}</span></td>
+            <td class="vehicle-id">${v.vehicle_id.substring(0, 16)}...</td>
+            <td>${v.latitude.toFixed(4)}, ${v.longitude.toFixed(4)}</td>
+            <td>${v.bearing ? v.bearing + '°' : '-'}</td>
+            <td>${v.speed ? (v.speed * 2.237).toFixed(1) + ' mph' : '-'}</td>
+        </tr>
+    `).join('');
+    
+    tbody.innerHTML = html;
+}
+
+function populateRouteFilter(routes) {
+    const select = document.getElementById('route-filter');
+    const currentValue = select.value;
+    
+    const options = '<option value="">All Routes</option>' +
+        routes.map(r => `<option value="${r}">${r}</option>`).join('');
+    
+    select.innerHTML = options;
+    select.value = currentValue;
+}
+
+function filterByRoute(route) {
+    document.getElementById('route-filter').value = route;
+    refreshData();
+}
+
+function toggleAutoRefresh() {
+    autoRefresh = !autoRefresh;
+    const btn = document.getElementById('auto-refresh-btn');
+    
+    if (autoRefresh) {
+        btn.textContent = '⏸️ Pause';
+        btn.classList.add('active');
+        refreshInterval = setInterval(refreshData, 10000); // Every 10 seconds
+    } else {
+        btn.textContent = '▶️ Auto-Refresh';
+        btn.classList.remove('active');
+        if (refreshInterval) clearInterval(refreshInterval);
+    }
+}
+
+// Initial load
+refreshData();
+
+// Refresh route filter when route changes
+document.getElementById('route-filter').addEventListener('change', refreshData);
+</script>
+{% endblock %}
+

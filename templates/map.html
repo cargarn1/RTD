@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+
+{% block title %}Live Map - RTD Transit Tracker{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="hero">
+        <h1>🗺️ Live Vehicle Map</h1>
+        <p>Real-time positions of all RTD vehicles</p>
+    </div>
+
+    <div class="map-container">
+        <div id="map" class="map-view">
+            <div class="map-placeholder">
+                <h2>📍 Vehicle Map</h2>
+                <p>Showing real-time positions of <span id="map-vehicle-count">-</span> vehicles</p>
+                <div id="map-vehicles" class="map-markers"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="map-controls">
+        <button onclick="refreshMap()" class="btn btn-primary">🔄 Refresh</button>
+        <label>
+            <input type="checkbox" id="auto-refresh-map" onchange="toggleMapRefresh()">
+            Auto-refresh every 15s
+        </label>
+    </div>
+
+    <div class="section">
+        <h2>Vehicle Clusters by Route</h2>
+        <div id="route-clusters" class="clusters-grid"></div>
+    </div>
+</div>
+
+<script>
+let mapRefreshInterval = null;
+
+async function refreshMap() {
+    try {
+        const response = await fetch('/api/vehicles');
+        const data = await response.json();
+        
+        if (data.success) {
+            displayVehiclesOnMap(data.vehicles);
+            displayRouteClusters(data.vehicles);
+        }
+    } catch (error) {
+        console.error('Error fetching map data:', error);
+    }
+}
+
+function displayVehiclesOnMap(vehicles) {
+    document.getElementById('map-vehicle-count').textContent = vehicles.length;
+    
+    // Group by location (simplified clustering)
+    const clusters = {};
+    vehicles.forEach(v => {
+        const key = `${v.latitude.toFixed(2)},${v.longitude.toFixed(2)}`;
+        if (!clusters[key]) {
+            clusters[key] = [];
+        }
+        clusters[key].push(v);
+    });
+    
+    const markersHTML = Object.entries(clusters).map(([loc, vList]) => {
+        const [lat, lng] = loc.split(',');
+        const routes = [...new Set(vList.map(v => v.route_id))].join(', ');
+        return `
+            <div class="map-marker" style="top: ${(40 - parseFloat(lat)) * 100}px; left: ${(parseFloat(lng) + 105) * 50}px;">
+                <div class="marker-dot" title="${routes}: ${vList.length} vehicle(s)">
+                    ${vList.length}
+                </div>
+            </div>
+        `;
+    }).join('');
+    
+    document.getElementById('map-vehicles').innerHTML = markersHTML;
+}
+
+function displayRouteClusters(vehicles) {
+    const routes = {};
+    vehicles.forEach(v => {
+        if (!routes[v.route_id]) {
+            routes[v.route_id] = [];
+        }
+        routes[v.route_id].push(v);
+    });
+    
+    const sortedRoutes = Object.entries(routes)
+        .sort((a, b) => b[1].length - a[1].length)
+        .slice(0, 12);
+    
+    const html = sortedRoutes.map(([route, vList]) => {
+        const avgLat = vList.reduce((sum, v) => sum + v.latitude, 0) / vList.length;
+        const avgLng = vList.reduce((sum, v) => sum + v.longitude, 0) / vList.length;
+        
+        return `
+            <div class="cluster-card">
+                <div class="cluster-route">${route}</div>
+                <div class="cluster-count">${vList.length} vehicles</div>
+                <div class="cluster-location">~${avgLat.toFixed(4)}, ${avgLng.toFixed(4)}</div>
+            </div>
+        `;
+    }).join('');
+    
+    document.getElementById('route-clusters').innerHTML = html;
+}
+
+function toggleMapRefresh() {
+    const checkbox = document.getElementById('auto-refresh-map');
+    
+    if (checkbox.checked) {
+        mapRefreshInterval = setInterval(refreshMap, 15000);
+    } else {
+        if (mapRefreshInterval) clearInterval(mapRefreshInterval);
+    }
+}
+
+// Initial load
+refreshMap();
+</script>
+{% endblock %}
+

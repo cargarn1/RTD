@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+
+{% block title %}About - RTD Transit Tracker{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="hero">
+        <h1>ℹ️ About RTD Transit Tracker</h1>
+        <p>Real-time transit tracking for Denver metro area</p>
+    </div>
+
+    <div class="about-content">
+        <section class="about-section">
+            <h2>🚌 What is this?</h2>
+            <p>RTD Transit Tracker is a real-time tracking application for Denver's Regional Transportation District (RTD) buses and trains. It provides live vehicle positions, route planning, and transit information.</p>
+        </section>
+
+        <section class="about-section">
+            <h2>✨ Features</h2>
+            <ul class="feature-list">
+                <li>📍 Real-time vehicle tracking (166+ active vehicles)</li>
+                <li>🗺️ Interactive map view</li>
+                <li>🚏 Transit route planning</li>
+                <li>📊 Live statistics and metrics</li>
+                <li>🔄 Auto-refresh capability</li>
+                <li>📱 Mobile-responsive design</li>
+            </ul>
+        </section>
+
+        <section class="about-section">
+            <h2>🔧 Technology Stack</h2>
+            <div class="tech-grid">
+                <div class="tech-card">
+                    <h3>Backend</h3>
+                    <ul>
+                        <li>Python 3</li>
+                        <li>Flask</li>
+                        <li>GTFS Realtime API</li>
+                    </ul>
+                </div>
+                <div class="tech-card">
+                    <h3>Frontend</h3>
+                    <ul>
+                        <li>HTML5</li>
+                        <li>CSS3</li>
+                        <li>JavaScript (Vanilla)</li>
+                    </ul>
+                </div>
+                <div class="tech-card">
+                    <h3>APIs</h3>
+                    <ul>
+                        <li>RTD Direct API</li>
+                        <li>Google Maps Transit</li>
+                        <li>RESTful endpoints</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <section class="about-section">
+            <h2>💡 How It Works</h2>
+            <ol class="how-it-works">
+                <li>
+                    <strong>Data Collection:</strong> 
+                    Fetches real-time data from RTD's GTFS feeds every few seconds
+                </li>
+                <li>
+                    <strong>Processing:</strong> 
+                    Processes vehicle positions, routes, and schedules
+                </li>
+                <li>
+                    <strong>Display:</strong> 
+                    Shows information in an easy-to-understand interface
+                </li>
+                <li>
+                    <strong>Route Planning:</strong> 
+                    Uses Google Maps API for intelligent route suggestions
+                </li>
+            </ol>
+        </section>
+
+        <section class="about-section">
+            <h2>📊 Data Sources</h2>
+            <ul>
+                <li><strong>RTD Denver:</strong> Real-time vehicle positions and route data</li>
+                <li><strong>Google Maps:</strong> Transit directions and station information</li>
+            </ul>
+        </section>
+
+        <section class="about-section">
+            <h2>🔗 Links</h2>
+            <div class="links-grid">
+                <a href="https://github.com/cargarn1/RTD" target="_blank" class="link-card">
+                    <div class="link-icon">📦</div>
+                    <div class="link-title">GitHub Repository</div>
+                    <div class="link-desc">View source code</div>
+                </a>
+                <a href="https://www.rtd-denver.com/" target="_blank" class="link-card">
+                    <div class="link-icon">🚌</div>
+                    <div class="link-title">RTD Denver</div>
+                    <div class="link-desc">Official RTD website</div>
+                </a>
+                <a href="https://developers.google.com/transit" target="_blank" class="link-card">
+                    <div class="link-icon">📍</div>
+                    <div class="link-title">GTFS Documentation</div>
+                    <div class="link-desc">Learn about GTFS</div>
+                </a>
+            </div>
+        </section>
+
+        <section class="about-section">
+            <h2>⚖️ License & Disclaimer</h2>
+            <p>This is an independent project and is not officially affiliated with RTD Denver. Transit data is provided by RTD and Google Maps. Please refer to their respective terms of service.</p>
+            <p>This application is provided "as is" for informational purposes. Always verify transit information with official RTD sources.</p>
+        </section>
+
+        <section class="about-section">
+            <h2>👨‍💻 Developer</h2>
+            <p>Created by Carlos Garcia</p>
+            <p>Built with ❤️ for the Denver community</p>
+        </section>
+    </div>
+</div>
+{% endblock %}
+

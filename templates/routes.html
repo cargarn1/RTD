@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+
+{% block title %}Route Planner - RTD Transit Tracker{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="hero">
+        <h1>🗺️ RTD Route Planner</h1>
+        <p>Find the best transit route to your destination</p>
+    </div>
+
+    {% if not google_maps_configured %}
+    <div class="alert alert-warning">
+        <strong>⚠️ Google Maps API not configured</strong><br>
+        To use route planning features, add your Google Maps API key to <code>config.py</code>.
+        <a href="https://console.cloud.google.com/google/maps-apis" target="_blank">Get a free API key</a>
+    </div>
+    {% endif %}
+
+    <div class="planner-form">
+        <div class="form-group">
+            <label for="origin">📍 Starting Location:</label>
+            <input type="text" id="origin" class="form-control" placeholder="Enter address or location" 
+                   list="origin-suggestions" {% if not google_maps_configured %}disabled{% endif %}>
+            <datalist id="origin-suggestions">
+                {% for key, value in common_locations.items() %}
+                <option value="{{ value }}">{{ key.replace('_', ' ').title() }}</option>
+                {% endfor %}
+            </datalist>
+        </div>
+
+        <div class="form-group">
+            <label for="destination">🎯 Destination:</label>
+            <input type="text" id="destination" class="form-control" placeholder="Enter address or location"
+                   list="dest-suggestions" {% if not google_maps_configured %}disabled{% endif %}>
+            <datalist id="dest-suggestions">
+                {% for key, value in common_locations.items() %}
+                <option value="{{ value }}">{{ key.replace('_', ' ').title() }}</option>
+                {% endfor %}
+            </datalist>
+        </div>
+
+        <button onclick="findRoutes()" class="btn btn-primary btn-large" 
+                {% if not google_maps_configured %}disabled{% endif %}>
+            🔍 Find Routes
+        </button>
+    </div>
+
+    <div id="results-container" style="display: none;">
+        <div class="section">
+            <h2>Available Routes</h2>
+            <div id="routes-results"></div>
+        </div>
+    </div>
+
+    <div id="loading" class="loading-spinner" style="display: none;">
+        <div class="spinner"></div>
+        <p>Finding best routes...</p>
+    </div>
+</div>
+
+<script>
+async function findRoutes() {
+    const origin = document.getElementById('origin').value;
+    const destination = document.getElementById('destination').value;
+    
+    if (!origin || !destination) {
+        alert('Please enter both origin and destination');
+        return;
+    }
+    
+    document.getElementById('loading').style.display = 'block';
+    document.getElementById('results-container').style.display = 'none';
+    
+    try {
+        const response = await fetch(`/api/directions?origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}`);
+        const data = await response.json();
+        
+        document.getElementById('loading').style.display = 'none';
+        
+        if (data.success) {
+            displayRoutes(data.routes);
+            document.getElementById('results-container').style.display = 'block';
+        } else {
+            alert('No routes found. Please check your addresses and try again.');
+        }
+    } catch (error) {
+        document.getElementById('loading').style.display = 'none';
+        console.error('Error finding routes:', error);
+        alert('Error finding routes. Please try again.');
+    }
+}
+
+function displayRoutes(routes) {
+    const html = routes.map((route, index) => `
+        <div class="route-result">
+            <div class="route-header">
+                <h3>Option ${index + 1}</h3>
+                <div class="route-summary">
+                    <span class="badge">⏱️ ${route.duration}</span>
+                    <span class="badge">📏 ${route.distance}</span>
+                </div>
+            </div>
+            
+            <div class="route-times">
+                <div class="time-block">
+                    <div class="time-label">Depart</div>
+                    <div class="time-value">🚀 ${route.departure_time}</div>
+                </div>
+                <div class="time-arrow">→</div>
+                <div class="time-block">
+                    <div class="time-label">Arrive</div>
+                    <div class="time-value">🎯 ${route.arrival_time}</div>
+                </div>
+            </div>
+            
+            ${route.summary ? `<p class="route-via">Via: ${route.summary}</p>` : ''}
+            
+            <div class="route-steps">
+                <h4>Step-by-Step Directions:</h4>
+                ${route.steps.map((step, i) => {
+                    if (step.travel_mode === 'TRANSIT') {
+                        const transit = step.transit;
+                        return `
+                            <div class="step transit-step">
+                                <div class="step-number">${i + 1}</div>
+                                <div class="step-content">
+                                    <div class="step-title">
+                                        🚌 Take ${transit.vehicle_type}: ${transit.line_short_name}
+                                    </div>
+                                    <div class="step-details">
+                                        <div><strong>Board:</strong> ${transit.departure_stop}</div>
+                                        <div><strong>Exit:</strong> ${transit.arrival_stop}</div>
+                                        ${transit.headsign ? `<div><strong>Direction:</strong> ${transit.headsign}</div>` : ''}
+                                        <div><strong>Stops:</strong> ${transit.num_stops} | <strong>Duration:</strong> ${step.duration}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        return `
+                            <div class="step walk-step">
+                                <div class="step-number">${i + 1}</div>
+                                <div class="step-content">
+                                    <div class="step-title">🚶 Walk ${step.distance}</div>
+                                    <div class="step-details">${step.duration}</div>
+                                </div>
+                            </div>
+                        `;
+                    }
+                }).join('')}
+            </div>
+        </div>
+    `).join('');
+    
+    document.getElementById('routes-results').innerHTML = html;
+}
+
+// Allow Enter key to submit
+document.getElementById('destination').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        findRoutes();
+    }
+});
+</script>
+{% endblock %}
+
