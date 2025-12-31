@@ -159,8 +159,22 @@ def get_route_detail(route_id):
     vehicles = rtd_client.get_vehicle_positions()
     if vehicles:
         route_vehicles = [v for v in vehicles if v['route_id'] == route_id.upper()]
-        route_info['current_vehicles'] = route_vehicles
-        route_info['vehicle_count'] = len(route_vehicles)
+        
+        # Enrich each vehicle with stop information
+        enriched_vehicles = []
+        for vehicle in route_vehicles:
+            try:
+                enriched_vehicle = route_details_client.enrich_vehicle_with_stop_info(
+                    vehicle, route_id
+                )
+                enriched_vehicles.append(enriched_vehicle)
+            except Exception as e:
+                # If enrichment fails, use basic vehicle info
+                print(f"Error enriching vehicle: {e}")
+                enriched_vehicles.append(vehicle)
+        
+        route_info['current_vehicles'] = enriched_vehicles
+        route_info['vehicle_count'] = len(enriched_vehicles)
     else:
         route_info['current_vehicles'] = []
         route_info['vehicle_count'] = 0

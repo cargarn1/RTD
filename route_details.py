@@ -8,6 +8,7 @@ import requests
 from datetime import datetime
 from typing import Dict, List, Optional
 from collections import defaultdict
+import math
 
 
 class RouteDetailsClient:
@@ -222,6 +223,116 @@ class RouteDetailsClient:
             {'route_id': 'FF1', 'name': 'Flatiron Flyer', 'type': 'BRT'},
         ]
         return routes
+    
+    def calculate_distance(self, lat1: float, lng1: float, lat2: float, lng2: float) -> float:
+        """
+        Calculate distance between two GPS coordinates in miles
+        Uses Haversine formula
+        """
+        R = 3959  # Earth's radius in miles
+        
+        lat1_rad = math.radians(lat1)
+        lat2_rad = math.radians(lat2)
+        delta_lat = math.radians(lat2 - lat1)
+        delta_lng = math.radians(lng2 - lng1)
+        
+        a = math.sin(delta_lat/2)**2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(delta_lng/2)**2
+        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+        
+        return R * c
+    
+    def find_nearest_stops(self, vehicle_lat: float, vehicle_lng: float, stops: List[Dict]) -> Dict:
+        """
+        Find the previous and next stops for a vehicle
+        
+        Args:
+            vehicle_lat: Vehicle latitude
+            vehicle_lng: Vehicle longitude
+            stops: List of stops with lat/lng
+        
+        Returns:
+            Dictionary with last_stop, next_stop, and estimated time
+        """
+        if not stops:
+            return {
+                'last_stop': None,
+                'next_stop': None,
+                'distance_to_next': None,
+                'eta_minutes': None
+            }
+        
+        # Find closest stop
+        min_distance = float('inf')
+        closest_stop_idx = 0
+        
+        for idx, stop in enumerate(stops):
+            distance = self.calculate_distance(
+                vehicle_lat, vehicle_lng,
+                stop['lat'], stop['lng']
+            )
+            if distance < min_distance:
+                min_distance = distance
+                closest_stop_idx = idx
+        
+        # Determine if vehicle is before or after closest stop
+        # (simplified logic - assumes vehicle is moving forward on route)
+        last_stop = stops[max(0, closest_stop_idx - 1)]
+        next_stop = stops[min(len(stops) - 1, closest_stop_idx + 1)]
+        
+        # Calculate distance to next stop
+        distance_to_next = self.calculate_distance(
+            vehicle_lat, vehicle_lng,
+            next_stop['lat'], next_stop['lng']
+        )
+        
+        # Estimate arrival time (assuming average speed of 25 mph if not available)
+        # This will be replaced with actual vehicle speed when available
+        average_speed = 25  # mph
+        eta_hours = distance_to_next / average_speed
+        eta_minutes = int(eta_hours * 60)
+        
+        return {
+            'last_stop': last_stop,
+            'next_stop': next_stop,
+            'distance_to_next': distance_to_next,
+            'eta_minutes': max(1, eta_minutes)  # At least 1 minute
+        }
+    
+    def enrich_vehicle_with_stop_info(self, vehicle: Dict, route_id: str) -> Dict:
+        """
+        Add stop information to a vehicle
+        
+        Args:
+            vehicle: Vehicle data with lat/lng
+            route_id: Route identifier
+        
+        Returns:
+            Vehicle data enriched with stop information
+        """
+        route_info = self.get_route_info(route_id)
+        stops = route_info['stops']
+        
+        stop_info = self.find_nearest_stops(
+            vehicle['latitude'],
+            vehicle['longitude'],
+            stops
+        )
+        
+        # Calculate ETA based on actual vehicle speed if available
+        if vehicle.get('speed') and vehicle['speed'] > 0:
+            # Speed is in m/s, convert to mph
+            speed_mph = vehicle['speed'] * 2.23694
+            if speed_mph > 5:  # Only use if moving reasonably
+                eta_hours = stop_info['distance_to_next'] / speed_mph
+                stop_info['eta_minutes'] = max(1, int(eta_hours * 60))
+        
+        # Add to vehicle data
+        vehicle['last_stop'] = stop_info['last_stop']['name'] if stop_info['last_stop'] else 'Unknown'
+        vehicle['next_stop'] = stop_info['next_stop']['name'] if stop_info['next_stop'] else 'End of Line'
+        vehicle['distance_to_next'] = stop_info['distance_to_next']
+        vehicle['eta_minutes'] = stop_info['eta_minutes']
+        
+        return vehicle
 
 
 if __name__ == "__main__":
