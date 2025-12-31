@@ -7,6 +7,7 @@ Beautiful, interactive web interface for RTD transit data
 from flask import Flask, render_template, jsonify, request
 from rtd_client import RTDClient
 from google_transit_client import GoogleTransitClient
+from route_details import RouteDetailsClient
 from config import GOOGLE_MAPS_API_KEY, validate_google_api_key, COMMON_LOCATIONS
 
 app = Flask(__name__)
@@ -14,6 +15,7 @@ app = Flask(__name__)
 # Initialize clients
 rtd_client = RTDClient()
 google_client = GoogleTransitClient(GOOGLE_MAPS_API_KEY) if validate_google_api_key() else None
+route_details_client = RouteDetailsClient()
 
 
 @app.route('/')
@@ -139,6 +141,38 @@ def routes_view():
 def about():
     """About page"""
     return render_template('about.html')
+
+
+@app.route('/route/<route_id>')
+def route_detail(route_id):
+    """Route detail page"""
+    route_info = route_details_client.get_route_info(route_id)
+    return render_template('route_detail.html', route=route_info)
+
+
+@app.route('/api/route/<route_id>')
+def get_route_detail(route_id):
+    """Get detailed route information"""
+    route_info = route_details_client.get_route_info(route_id)
+    
+    # Add current vehicles on this route
+    vehicles = rtd_client.get_vehicle_positions()
+    if vehicles:
+        route_vehicles = [v for v in vehicles if v['route_id'] == route_id.upper()]
+        route_info['current_vehicles'] = route_vehicles
+        route_info['vehicle_count'] = len(route_vehicles)
+    else:
+        route_info['current_vehicles'] = []
+        route_info['vehicle_count'] = 0
+    
+    return jsonify(route_info)
+
+
+@app.route('/api/routes/all')
+def get_all_routes():
+    """Get summary of all routes"""
+    routes = route_details_client.get_all_routes_summary()
+    return jsonify({'routes': routes})
 
 
 if __name__ == '__main__':

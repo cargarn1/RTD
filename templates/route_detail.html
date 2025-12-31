@@ -1,0 +1,446 @@
+{% extends "base.html" %}
+
+{% block title %}{{ route.route_name }} - RTD Transit Tracker{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="hero">
+        <h1>{{ route.route_name }}</h1>
+        <p>{{ route.description }}</p>
+        <div class="route-type-badge">{{ route.route_type }}</div>
+    </div>
+
+    <div class="route-stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon">🚌</div>
+            <div class="stat-number" id="vehicle-count">-</div>
+            <div class="stat-label">Active Vehicles</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">🚏</div>
+            <div class="stat-number">{{ route.stops|length }}</div>
+            <div class="stat-label">Total Stops</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">⏱️</div>
+            <div class="stat-number">{{ route.schedule.frequency }}</div>
+            <div class="stat-label">Service Frequency</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">🕐</div>
+            <div class="stat-number">{{ route.schedule.first_departure }} - {{ route.schedule.last_departure }}</div>
+            <div class="stat-label">Operating Hours</div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>📍 Route Stops</h2>
+        <p class="section-subtitle">{{ route.stops|length }} stops along this route</p>
+        
+        <div class="stops-container">
+            {% for stop in route.stops %}
+            <div class="stop-card">
+                <div class="stop-sequence">{{ stop.sequence }}</div>
+                <div class="stop-info">
+                    <div class="stop-name">{{ stop.name }}</div>
+                    <div class="stop-location">
+                        📍 {{ "%.4f"|format(stop.lat) }}, {{ "%.4f"|format(stop.lng) }}
+                    </div>
+                </div>
+                <div class="stop-actions">
+                    <button onclick="showStopOnMap({{ stop.lat }}, {{ stop.lng }})" class="btn-small">
+                        🗺️ Map
+                    </button>
+                </div>
+            </div>
+            {% if not loop.last %}
+            <div class="stop-connector"></div>
+            {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>🕐 Schedule & Timing</h2>
+        
+        <div class="schedule-tabs">
+            <button class="schedule-tab active" onclick="showSchedule('weekday')">Weekday</button>
+            <button class="schedule-tab" onclick="showSchedule('saturday')">Saturday</button>
+            <button class="schedule-tab" onclick="showSchedule('sunday')">Sunday</button>
+        </div>
+
+        <div class="schedule-content">
+            <div id="weekday-schedule" class="schedule-panel active">
+                <h3>Weekday Schedule</h3>
+                <p><strong>Operating Hours:</strong> {{ route.operating_hours.weekday }}</p>
+                <p><strong>Frequency:</strong> {{ route.schedule.frequency }}</p>
+                
+                <div class="next-departures">
+                    <h4>Next Departures:</h4>
+                    <div class="departure-times">
+                        {% for time in route.schedule.weekday[:10] %}
+                        <span class="departure-time">{{ time }}</span>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <div id="saturday-schedule" class="schedule-panel">
+                <h3>Saturday Schedule</h3>
+                <p><strong>Operating Hours:</strong> {{ route.operating_hours.saturday }}</p>
+                <p><strong>Frequency:</strong> {{ route.schedule.frequency }}</p>
+                <p class="note">Schedule times are approximate. Check RTD website for exact times.</p>
+            </div>
+
+            <div id="sunday-schedule" class="schedule-panel">
+                <h3>Sunday Schedule</h3>
+                <p><strong>Operating Hours:</strong> {{ route.operating_hours.sunday }}</p>
+                <p><strong>Frequency:</strong> {{ route.schedule.frequency }}</p>
+                <p class="note">Schedule times are approximate. Check RTD website for exact times.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>🚌 Current Vehicles</h2>
+        <div id="current-vehicles" class="vehicles-grid">
+            <p class="loading">Loading vehicle positions...</p>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>🔗 Quick Actions</h2>
+        <div class="actions-grid">
+            <a href="/" class="action-card">
+                <div class="action-icon">📊</div>
+                <div class="action-title">Back to Dashboard</div>
+            </a>
+            <a href="/map" class="action-card">
+                <div class="action-icon">🗺️</div>
+                <div class="action-title">View on Map</div>
+            </a>
+            <a href="/routes" class="action-card">
+                <div class="action-icon">🚏</div>
+                <div class="action-title">Plan Trip</div>
+            </a>
+            <a href="https://www.rtd-denver.com/" target="_blank" class="action-card">
+                <div class="action-icon">🌐</div>
+                <div class="action-title">RTD Website</div>
+            </a>
+        </div>
+    </div>
+</div>
+
+<script>
+const routeId = '{{ route.route_id }}';
+
+async function loadVehicles() {
+    try {
+        const response = await fetch(`/api/route/${routeId}`);
+        const data = await response.json();
+        
+        // Update vehicle count
+        document.getElementById('vehicle-count').textContent = data.vehicle_count;
+        
+        // Display vehicles
+        const container = document.getElementById('current-vehicles');
+        
+        if (data.current_vehicles.length === 0) {
+            container.innerHTML = '<p class="no-data">No vehicles currently active on this route</p>';
+            return;
+        }
+        
+        const html = data.current_vehicles.map(v => `
+            <div class="vehicle-card">
+                <div class="vehicle-header">
+                    <span class="route-badge">${v.route_id}</span>
+                    <span class="vehicle-label">Vehicle ${v.vehicle_id.substring(0, 8)}...</span>
+                </div>
+                <div class="vehicle-details">
+                    <div class="detail-row">
+                        <span class="detail-label">📍 Location:</span>
+                        <span class="detail-value">${v.latitude.toFixed(4)}, ${v.longitude.toFixed(4)}</span>
+                    </div>
+                    ${v.bearing ? `
+                    <div class="detail-row">
+                        <span class="detail-label">🧭 Heading:</span>
+                        <span class="detail-value">${v.bearing}°</span>
+                    </div>
+                    ` : ''}
+                    ${v.speed ? `
+                    <div class="detail-row">
+                        <span class="detail-label">⚡ Speed:</span>
+                        <span class="detail-value">${(v.speed * 2.237).toFixed(1)} mph</span>
+                    </div>
+                    ` : ''}
+                </div>
+            </div>
+        `).join('');
+        
+        container.innerHTML = html;
+    } catch (error) {
+        console.error('Error loading vehicles:', error);
+        document.getElementById('current-vehicles').innerHTML = 
+            '<p class="error">Error loading vehicle data</p>';
+    }
+}
+
+function showSchedule(day) {
+    // Hide all panels
+    document.querySelectorAll('.schedule-panel').forEach(panel => {
+        panel.classList.remove('active');
+    });
+    
+    // Remove active from all tabs
+    document.querySelectorAll('.schedule-tab').forEach(tab => {
+        tab.classList.remove('active');
+    });
+    
+    // Show selected panel
+    document.getElementById(`${day}-schedule`).classList.add('active');
+    
+    // Activate clicked tab
+    event.target.classList.add('active');
+}
+
+function showStopOnMap(lat, lng) {
+    alert(`Opening map at coordinates: ${lat}, ${lng}\nMap integration coming soon!`);
+}
+
+// Load vehicles on page load
+loadVehicles();
+
+// Refresh every 15 seconds
+setInterval(loadVehicles, 15000);
+</script>
+
+<style>
+.route-type-badge {
+    display: inline-block;
+    padding: 0.5rem 1.5rem;
+    background-color: var(--secondary-color);
+    color: var(--white);
+    border-radius: 20px;
+    font-weight: 600;
+    margin-top: 1rem;
+}
+
+.route-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.section-subtitle {
+    color: var(--gray);
+    margin-bottom: 1.5rem;
+}
+
+.stops-container {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.stop-card {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    padding: 1.5rem;
+    background: var(--light-gray);
+    border-radius: 8px;
+    margin-bottom: 0.5rem;
+}
+
+.stop-sequence {
+    width: 40px;
+    height: 40px;
+    background-color: var(--primary-color);
+    color: var(--white);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 1.2rem;
+    flex-shrink: 0;
+}
+
+.stop-info {
+    flex: 1;
+}
+
+.stop-name {
+    font-weight: 600;
+    font-size: 1.1rem;
+    margin-bottom: 0.25rem;
+}
+
+.stop-location {
+    color: var(--gray);
+    font-size: 0.9rem;
+}
+
+.stop-connector {
+    width: 4px;
+    height: 20px;
+    background-color: var(--primary-color);
+    margin-left: 18px;
+}
+
+.btn-small {
+    padding: 0.5rem 1rem;
+    background-color: var(--primary-color);
+    color: var(--white);
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+
+.btn-small:hover {
+    background-color: #1d4ed8;
+}
+
+.schedule-tabs {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+    border-bottom: 2px solid var(--border);
+}
+
+.schedule-tab {
+    padding: 0.75rem 1.5rem;
+    background: none;
+    border: none;
+    border-bottom: 3px solid transparent;
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: 500;
+    color: var(--gray);
+    transition: all 0.3s;
+}
+
+.schedule-tab.active {
+    color: var(--primary-color);
+    border-bottom-color: var(--primary-color);
+}
+
+.schedule-panel {
+    display: none;
+}
+
+.schedule-panel.active {
+    display: block;
+}
+
+.next-departures {
+    margin-top: 1.5rem;
+}
+
+.departure-times {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 1rem;
+}
+
+.departure-time {
+    padding: 0.5rem 1rem;
+    background-color: var(--primary-color);
+    color: var(--white);
+    border-radius: 6px;
+    font-weight: 600;
+    font-family: monospace;
+}
+
+.vehicles-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1rem;
+}
+
+.vehicle-card {
+    background: var(--light-gray);
+    border-radius: 8px;
+    padding: 1rem;
+}
+
+.vehicle-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.vehicle-label {
+    color: var(--gray);
+    font-size: 0.9rem;
+}
+
+.vehicle-details {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.detail-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.9rem;
+}
+
+.detail-label {
+    color: var(--gray);
+}
+
+.detail-value {
+    font-weight: 600;
+}
+
+.actions-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+}
+
+.action-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 1.5rem;
+    background: var(--light-gray);
+    border-radius: 8px;
+    text-decoration: none;
+    color: var(--dark);
+    transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.action-card:hover {
+    transform: translateY(-5px);
+    box-shadow: var(--shadow-lg);
+}
+
+.action-icon {
+    font-size: 2.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.action-title {
+    font-weight: 600;
+}
+
+.note {
+    color: var(--gray);
+    font-style: italic;
+    margin-top: 1rem;
+}
+
+.no-data, .error {
+    text-align: center;
+    color: var(--gray);
+    padding: 2rem;
+}
+</style>
+{% endblock %}
+

@@ -253,6 +253,12 @@ body {
     opacity: 0.9;
 }
 
+.route-action {
+    font-size: 0.8rem;
+    opacity: 0.8;
+    margin-top: 0.5rem;
+}
+
 /* Table */
 .table-container {
     overflow-x: auto;

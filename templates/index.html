@@ -108,13 +108,18 @@ function updateTopRoutes(routeCounts) {
         .slice(0, 8);
     
     const html = topRoutes.map(([route, count]) => `
-        <div class="route-card" onclick="filterByRoute('${route}')">
+        <div class="route-card" onclick="viewRouteDetails('${route}')">
             <div class="route-number">${route}</div>
             <div class="route-count">${count} vehicles</div>
+            <div class="route-action">View Details →</div>
         </div>
     `).join('');
     
     document.getElementById('top-routes').innerHTML = html;
+}
+
+function viewRouteDetails(route) {
+    window.location.href = `/route/${route}`;
 }
 
 function updateVehiclesTable(vehicles) {
