@@ -64,6 +64,7 @@ def index():
         'endpoints': {
             'GET /api/vehicles': 'Get all active vehicle positions',
             'GET /api/vehicles/<route_id>': 'Get vehicles for specific route',
+            'GET /api/routes': 'Get list of all active routes',
             'GET /api/directions': 'Get transit directions (requires Google Maps API)',
             'GET /api/stations/nearby': 'Find nearby transit stations',
             'GET /api/health': 'Health check (no auth required)',
@@ -111,10 +112,51 @@ def get_vehicles():
     if route_filter:
         vehicles = [v for v in vehicles if v['route_id'] == route_filter.upper()]
     
+    # Get route statistics
+    route_counts = {}
+    for v in vehicles:
+        route = v['route_id']
+        route_counts[route] = route_counts.get(route, 0) + 1
+    
     return jsonify({
         'success': True,
         'count': len(vehicles),
-        'vehicles': vehicles
+        'vehicles': vehicles,
+        'route_counts': route_counts,
+        'routes': sorted(route_counts.keys())
+    })
+
+
+@app.route('/api/routes', methods=['GET'])
+@require_api_key
+def get_routes():
+    """
+    Get list of all active routes
+    
+    Returns:
+        List of route IDs currently active
+    
+    Example:
+        GET /api/routes?api_key=YOUR_KEY
+    """
+    vehicles = rtd_client.get_vehicle_positions()
+    
+    if vehicles is None:
+        return jsonify({'error': 'Failed to fetch data'}), 503
+    
+    routes = sorted(list(set(v['route_id'] for v in vehicles)))
+    
+    # Get vehicle counts per route
+    route_counts = {}
+    for v in vehicles:
+        route = v['route_id']
+        route_counts[route] = route_counts.get(route, 0) + 1
+    
+    return jsonify({
+        'success': True,
+        'routes': routes,
+        'count': len(routes),
+        'route_counts': route_counts
     })
 
 
