@@ -18,7 +18,8 @@ app = Flask(__name__)
 # In production, store these in a database
 API_KEYS = {
     # Generate keys using: python3 -c "import secrets; print(secrets.token_urlsafe(32))"
-    os.environ.get('RTD_API_KEY', 'demo-key-change-in-production'): {
+    #os.environ.get('RTD_API_KEY', 'demo-key-change-in-production'): {
+    'h2YQRikxcs5uvYBsGNdotSYG7yVsDxlMpUqkitX6QPY': {
         'name': 'Default Key',
         'permissions': ['read']
     }
@@ -290,5 +291,5 @@ if __name__ == '__main__':
     print("\n" + "="*80 + "\n")
     
     # Run the server
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=True, host='0.0.0.0', port=8000)
 
