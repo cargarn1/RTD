@@ -46,3 +46,9 @@ htmlcov/
 *.zip
 google_transit/
 
+# Log files
+*.log
+
+# Generated API keys (contains secrets)
+generated_api_keys.txt
+
