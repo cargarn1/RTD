@@ -52,6 +52,91 @@ def require_api_key(f):
 rtd_client = RTDClient()
 google_client = GoogleTransitClient(GOOGLE_MAPS_API_KEY) if GOOGLE_MAPS_API_KEY != 'YOUR_GOOGLE_MAPS_API_KEY_HERE' else None
 
+# Cache for stops data (to avoid reloading on every request)
+_stops_cache = None
+_stops_cache_time = None
+CACHE_DURATION = 3600  # Cache for 1 hour
+
+
+def get_stops_cache():
+    """Get stops data with caching"""
+    global _stops_cache, _stops_cache_time
+    import time
+    
+    current_time = time.time()
+    
+    # Reload cache if expired or not loaded
+    if _stops_cache is None or (_stops_cache_time and current_time - _stops_cache_time > CACHE_DURATION):
+        stops = rtd_client.parse_stops()
+        if stops:
+            _stops_cache = stops
+            _stops_cache_time = current_time
+    
+    return _stops_cache
+
+
+def calculate_distance(lat1, lng1, lat2, lng2):
+    """
+    Calculate distance between two GPS coordinates in miles
+    Uses Haversine formula
+    """
+    import math
+    R = 3959  # Earth's radius in miles
+    
+    lat1_rad = math.radians(lat1)
+    lat2_rad = math.radians(lat2)
+    delta_lat = math.radians(lat2 - lat1)
+    delta_lng = math.radians(lng2 - lng1)
+    
+    a = math.sin(delta_lat/2)**2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(delta_lng/2)**2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+    
+    return R * c
+
+
+def find_closest_stop(vehicle_lat, vehicle_lng):
+    """
+    Find the closest stop to a vehicle
+    
+    Args:
+        vehicle_lat: Vehicle latitude
+        vehicle_lng: Vehicle longitude
+    
+    Returns:
+        Dictionary with closest stop information or None
+    """
+    stops = get_stops_cache()
+    if not stops:
+        return None
+    
+    min_distance = float('inf')
+    closest_stop = None
+    
+    for stop in stops:
+        try:
+            stop_lat = float(stop.get('stop_lat', 0))
+            stop_lng = float(stop.get('stop_lon', 0))
+            
+            if stop_lat == 0 or stop_lng == 0:
+                continue
+            
+            distance = calculate_distance(vehicle_lat, vehicle_lng, stop_lat, stop_lng)
+            
+            if distance < min_distance:
+                min_distance = distance
+                closest_stop = {
+                    'stop_id': stop.get('stop_id'),
+                    'stop_name': stop.get('stop_name', 'Unknown Stop'),
+                    'stop_lat': stop_lat,
+                    'stop_lng': stop_lng,
+                    'distance_miles': round(distance, 3),
+                    'distance_meters': round(distance * 1609.34, 1)  # Convert to meters
+                }
+        except (ValueError, TypeError):
+            continue
+    
+    return closest_stop
+
 
 @app.route('/')
 def index():
@@ -117,6 +202,26 @@ def get_vehicles():
     for v in vehicles:
         route = v['route_id']
         route_counts[route] = route_counts.get(route, 0) + 1
+    
+    # Add closest stop information to each vehicle
+    include_stops = request.args.get('include_stops', 'true').lower() == 'true'
+    if include_stops:
+        for v in vehicles:
+            try:
+                closest_stop = find_closest_stop(v['latitude'], v['longitude'])
+                if closest_stop:
+                    v['closest_stop'] = {
+                        'stop_id': closest_stop['stop_id'],
+                        'stop_name': closest_stop['stop_name'],
+                        'stop_latitude': closest_stop['stop_lat'],
+                        'stop_longitude': closest_stop['stop_lng'],
+                        'distance_miles': closest_stop['distance_miles'],
+                        'distance_meters': closest_stop['distance_meters']
+                    }
+                else:
+                    v['closest_stop'] = None
+            except (KeyError, TypeError):
+                v['closest_stop'] = None
     
     # Check if format=array is requested (for Zapier triggers)
     format_type = request.args.get('format', 'json')
@@ -188,6 +293,26 @@ def get_vehicles_by_route(route_id):
         }), 503
     
     route_vehicles = [v for v in vehicles if v['route_id'] == route_id.upper()]
+    
+    # Add closest stop information to each vehicle
+    include_stops = request.args.get('include_stops', 'true').lower() == 'true'
+    if include_stops:
+        for v in route_vehicles:
+            try:
+                closest_stop = find_closest_stop(v['latitude'], v['longitude'])
+                if closest_stop:
+                    v['closest_stop'] = {
+                        'stop_id': closest_stop['stop_id'],
+                        'stop_name': closest_stop['stop_name'],
+                        'stop_latitude': closest_stop['stop_lat'],
+                        'stop_longitude': closest_stop['stop_lng'],
+                        'distance_miles': closest_stop['distance_miles'],
+                        'distance_meters': closest_stop['distance_meters']
+                    }
+                else:
+                    v['closest_stop'] = None
+            except (KeyError, TypeError):
+                v['closest_stop'] = None
     
     return jsonify({
         'success': True,
