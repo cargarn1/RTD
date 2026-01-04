@@ -118,6 +118,17 @@ def get_vehicles():
         route = v['route_id']
         route_counts[route] = route_counts.get(route, 0) + 1
     
+    # Check if format=array is requested (for Zapier triggers)
+    format_type = request.args.get('format', 'json')
+    if format_type == 'array':
+        # Return array directly with id field for Zapier triggers
+        vehicles_with_id = []
+        for v in vehicles:
+            vehicle = v.copy()
+            vehicle['id'] = vehicle['vehicle_id']  # Add id field for Zapier
+            vehicles_with_id.append(vehicle)
+        return jsonify(vehicles_with_id)
+    
     return jsonify({
         'success': True,
         'count': len(vehicles),
