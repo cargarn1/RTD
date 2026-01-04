@@ -1,14 +1,18 @@
 # RTD Denver Transportation API Client
 
-A comprehensive Python client for accessing RTD (Regional Transportation District) Denver's transportation data through multiple APIs:
+A comprehensive Python client and REST API for accessing RTD (Regional Transportation District) Denver's transportation data through multiple APIs:
 - **RTD Direct APIs**: Real-time vehicle tracking via GTFS feeds
 - **Google Maps Transit API**: Complete trip planning with RTD integration
+- **REST API Server**: Custom API with authentication for integrations (Zapier, webhooks, etc.)
+- **Web Frontend**: Interactive dashboard and live map visualization
 
 ## Features
 
 ### RTD Direct APIs
 - 📍 **Real-time Vehicle Positions**: Track buses and trains in real-time
 - 🚌 **Live Fleet Monitoring**: See all active vehicles on RTD network
+- 🚏 **Closest Stop Detection**: Automatically find nearest stop to each vehicle
+- 📊 **Route Statistics**: Vehicle counts and route information
 
 ### Google Maps Transit API  
 - 🗺️ **Trip Planning**: Get detailed transit directions with RTD
@@ -17,6 +21,19 @@ A comprehensive Python client for accessing RTD (Regional Transportation Distric
 - 🔀 **Multiple Routes**: Compare different route options
 - 🚶‍♂️ **Walking Directions**: Integrated pedestrian navigation
 - 📊 **Real-time Updates**: Live transit data including delays
+
+### REST API Server
+- 🔐 **API Key Authentication**: Secure access to your API
+- 🎯 **Zapier Integration**: Ready-to-use triggers and actions
+- 📡 **Webhook Support**: Perfect for automation workflows
+- 🚏 **Closest Stop Info**: Includes nearest stop for each vehicle
+- 📊 **Multiple Endpoints**: Vehicles, routes, directions, stations
+
+### Web Frontend
+- 🗺️ **Live Map**: Real-time vehicle positions on interactive map
+- 📊 **Dashboard**: Overview of RTD transit data
+- 🚏 **Route Planner**: Plan trips and find routes
+- 📍 **Route Details**: Detailed information for each route
 
 ## Installation
 
@@ -80,6 +97,28 @@ python3 example_rtd_only.py
 
 # Google Maps Transit API examples
 python3 example_google_maps.py
+
+# Address to routes example
+python3 example_address_to_routes.py
+```
+
+### Start REST API Server
+
+```bash
+# Start API server (port 8000)
+python3 api_server.py
+
+# Test the API
+curl -H "X-API-Key: YOUR_API_KEY" http://localhost:8000/api/health
+```
+
+### Start Web Frontend
+
+```bash
+# Start web app (port 5000)
+python3 web_app.py
+
+# Access at http://localhost:5000
 ```
 
 ## Usage Examples
@@ -198,8 +237,16 @@ Get real-time positions of all active RTD vehicles.
 - `trip_id`: Current trip identifier
 - `latitude`, `longitude`: Vehicle location
 - `bearing`: Direction of travel (degrees)
-- `speed`: Speed in meters per second
+- `speed`: Speed in meters per second (may be null)
 - `timestamp`: Last update timestamp
+
+#### `parse_stops()`
+Get all RTD stops from GTFS static feed.
+
+**Returns:** List of dictionaries with stop information including:
+- `stop_id`: Stop identifier
+- `stop_name`: Stop name
+- `stop_lat`, `stop_lon`: Stop coordinates
 
 ### GoogleTransitClient Class
 
@@ -330,38 +377,182 @@ track_route("A")
 - **API key required** (free tier available)
 - Updates: Real-time with traffic and delays
 
+## REST API Server
+
+### Quick Start
+
+```bash
+# Start the API server
+python3 api_server.py
+```
+
+Server runs on `http://localhost:8000` by default.
+
+### API Endpoints
+
+#### Get All Vehicles
+```bash
+GET /api/vehicles
+Headers: X-API-Key: YOUR_API_KEY
+```
+
+**Query Parameters:**
+- `format=array` - Return array format (for Zapier triggers)
+- `include_stops=true` - Include closest stop info (default: true)
+- `route=<route_id>` - Filter by route
+
+**Response includes:**
+- Vehicle positions, routes, route counts
+- Closest stop information (stop name, distance, coordinates)
+
+#### Get Vehicles by Route
+```bash
+GET /api/vehicles/<route_id>
+Headers: X-API-Key: YOUR_API_KEY
+```
+
+#### Get All Routes
+```bash
+GET /api/routes
+Headers: X-API-Key: YOUR_API_KEY
+```
+
+#### Health Check
+```bash
+GET /api/health
+# No authentication required
+```
+
+### Closest Stop Feature
+
+Each vehicle response includes closest stop information:
+
+```json
+{
+  "vehicle_id": "...",
+  "latitude": 39.7539,
+  "longitude": -105.0002,
+  "closest_stop": {
+    "stop_id": "12345",
+    "stop_name": "Union Station",
+    "stop_latitude": 39.7539,
+    "stop_longitude": -105.0002,
+    "distance_miles": 0.125,
+    "distance_meters": 201.2
+  }
+}
+```
+
+**Disable closest stops** (for faster response):
+```bash
+GET /api/vehicles?include_stops=false
+```
+
+## Zapier Integration
+
+### Setup Guide
+
+See comprehensive guides:
+- **[Zapier UI Builder Guide](ZAPIER_UI_BUILDER_GUIDE.md)** - Step-by-step integration setup
+- **[Zapier Zap Examples](ZAPIER_ZAP_EXAMPLES.md)** - 12+ practical Zap examples
+- **[Zapier Integration Guide](ZAPIER_INTEGRATION.md)** - General integration info
+
+### Quick Setup
+
+1. **Start API Server**: `python3 api_server.py` (port 8000)
+2. **Expose with ngrok**: `ngrok http 8000`
+3. **Create Zapier App**: Use UI Builder at https://zapier.com/app/developer
+4. **Configure Authentication**: API Key type with `X-API-Key` header
+5. **Create Triggers/Actions**: Use endpoints with `format=array` for triggers
+
+### Available Triggers
+
+- **New Vehicle in Service** - Polling trigger for new vehicles entering service
+  - Uses `/api/vehicles?format=array`
+  - Includes closest stop information
+  - Automatically deduplicates by vehicle ID
+
+### Available Actions
+
+- **Get All Vehicles** - Retrieve all active vehicles
+- **Get Vehicles by Route** - Get vehicles for specific route
+- **Get All Routes** - List all active routes
+
+## Web Frontend
+
+### Start Web App
+
+```bash
+python3 web_app.py
+```
+
+Access at `http://localhost:5000`
+
+### Features
+
+- **Dashboard** (`/`) - Overview of RTD data
+- **Live Map** (`/map`) - Real-time vehicle positions
+- **Route Planner** (`/routes`) - Plan trips
+- **Route Details** (`/route/<route_id>`) - Detailed route information
+
+See [Web Frontend Guide](WEB_FRONTEND_GUIDE.md) for details.
+
 ## Project Structure
 
 ```
 RTD/
 ├── rtd_client.py              # RTD Direct API client
 ├── google_transit_client.py   # Google Maps Transit API client
+├── route_details.py           # Route details and stop information
+├── api_server.py              # REST API server (Flask)
+├── web_app.py                 # Web frontend (Flask)
 ├── config.py                  # Your API keys (git-ignored)
 ├── config_example.py          # Config template
 ├── example.py                 # Comprehensive demo
 ├── example_rtd_only.py        # RTD API only demo
 ├── example_google_maps.py     # Google Maps API demo
+├── example_address_to_routes.py  # Address to routes example
+├── generate_api_key.py        # Generate API keys for REST API
+├── test_api.sh                # API testing script
 ├── requirements.txt           # Python dependencies
-└── README.md                  # This file
+├── templates/                 # Web frontend templates
+│   ├── index.html
+│   ├── map.html
+│   ├── routes.html
+│   └── route_detail.html
+├── static/                    # Web frontend assets
+│   ├── css/style.css
+│   └── js/main.js
+├── README.md                  # This file
+├── ZAPIER_UI_BUILDER_GUIDE.md # Zapier integration guide
+├── ZAPIER_ZAP_EXAMPLES.md     # Zap examples
+├── ZAPIER_INTEGRATION.md      # General Zapier guide
+├── WEB_FRONTEND_GUIDE.md      # Web frontend guide
+└── TESTING_GUIDE.md           # Testing guide
 ```
 
 ## Comparison: Which API to Use?
 
-| Feature | RTD Direct API | Google Maps API |
-|---------|---------------|-----------------|
-| Real-time vehicle positions | ✅ Yes | ❌ No |
-| Trip planning | ❌ Limited | ✅ Comprehensive |
-| Multiple route options | ❌ No | ✅ Yes |
-| Walking directions | ❌ No | ✅ Yes |
-| Schedule information | ❌ Unavailable | ✅ Yes |
-| Service alerts | ❌ Unavailable | ✅ Yes |
-| API key required | ✅ No | ⚠️ Yes (free tier) |
-| Cost | 🎉 Free | 💰 Free tier + paid |
+| Feature | RTD Direct API | Google Maps API | REST API Server |
+|---------|---------------|-----------------|-----------------|
+| Real-time vehicle positions | ✅ Yes | ❌ No | ✅ Yes (via RTD) |
+| Trip planning | ❌ Limited | ✅ Comprehensive | ✅ Yes (via Google) |
+| Multiple route options | ❌ No | ✅ Yes | ✅ Yes |
+| Walking directions | ❌ No | ✅ Yes | ✅ Yes |
+| Schedule information | ❌ Unavailable | ✅ Yes | ✅ Yes |
+| Service alerts | ❌ Unavailable | ✅ Yes | ✅ Yes |
+| Closest stop info | ❌ No | ❌ No | ✅ Yes |
+| Zapier integration | ❌ No | ❌ No | ✅ Yes |
+| Webhook support | ❌ No | ❌ No | ✅ Yes |
+| API key required | ✅ No | ⚠️ Yes (free tier) | ⚠️ Yes (custom) |
+| Cost | 🎉 Free | 💰 Free tier + paid | 🎉 Free (self-hosted) |
 
 **Recommendation**: 
 - Use **RTD Direct API** for real-time vehicle tracking and fleet monitoring
 - Use **Google Maps API** for trip planning, directions, and user-facing applications
-- Use **both together** for complete functionality!
+- Use **REST API Server** for Zapier integration, webhooks, and custom integrations
+- Use **Web Frontend** for interactive visualization and user-friendly interface
+- Use **all together** for complete functionality!
 
 ## Troubleshooting
 
@@ -383,6 +574,8 @@ RTD/
 - Python 3.7+
 - requests >= 2.31.0
 - gtfs-realtime-bindings >= 1.0.0
+- flask >= 2.0.0 (for API server and web frontend)
+- google-maps-services-python >= 4.0.0 (for Google Maps features)
 - Google Maps API key (optional, for Google Maps features)
 
 ## Free Tier Limits
@@ -405,12 +598,89 @@ This project uses publicly available RTD data and Google Maps APIs.
 - RTD data: Check [RTD's terms of service](https://www.rtd-denver.com/)
 - Google Maps: Follow [Google Maps Platform Terms](https://cloud.google.com/maps-platform/terms)
 
+## API Server Endpoints
+
+### Authentication
+All endpoints (except `/api/health`) require API key authentication:
+- **Header**: `X-API-Key: YOUR_API_KEY`
+- **Query Parameter**: `?api_key=YOUR_API_KEY`
+
+### Endpoints
+
+| Endpoint | Method | Auth | Description |
+|----------|--------|------|-------------|
+| `/api/health` | GET | ❌ No | Health check |
+| `/api/vehicles` | GET | ✅ Yes | Get all vehicles |
+| `/api/vehicles/<route_id>` | GET | ✅ Yes | Get vehicles by route |
+| `/api/routes` | GET | ✅ Yes | Get all routes |
+| `/api/directions` | GET | ✅ Yes | Get transit directions |
+| `/api/stations/nearby` | GET | ✅ Yes | Find nearby stations |
+
+### Query Parameters
+
+**`/api/vehicles`:**
+- `format=array` - Return array format (for Zapier triggers)
+- `include_stops=true` - Include closest stop info (default: true)
+- `route=<route_id>` - Filter by route
+
+**Example:**
+```bash
+# Get vehicles with closest stops (default)
+curl -H "X-API-Key: YOUR_KEY" http://localhost:8000/api/vehicles
+
+# Get vehicles in array format for Zapier
+curl -H "X-API-Key: YOUR_KEY" "http://localhost:8000/api/vehicles?format=array"
+
+# Get vehicles without closest stops (faster)
+curl -H "X-API-Key: YOUR_KEY" "http://localhost:8000/api/vehicles?include_stops=false"
+```
+
+### Response Format
+
+**Standard format:**
+```json
+{
+  "success": true,
+  "count": 340,
+  "vehicles": [...],
+  "routes": ["A", "AB1", "15", ...],
+  "route_counts": {"A": 8, "AB1": 3, ...}
+}
+```
+
+**Array format** (`format=array`):
+```json
+[
+  {
+    "id": "vehicle_id",
+    "vehicle_id": "...",
+    "route_id": "A",
+    "latitude": 39.7539,
+    "longitude": -105.0002,
+    "closest_stop": {
+      "stop_name": "Union Station",
+      "distance_meters": 201.2
+    }
+  }
+]
+```
+
+## Documentation
+
+- **[Zapier UI Builder Guide](ZAPIER_UI_BUILDER_GUIDE.md)** - Complete Zapier integration setup
+- **[Zapier Zap Examples](ZAPIER_ZAP_EXAMPLES.md)** - 12+ practical Zap examples
+- **[Zapier Integration Guide](ZAPIER_INTEGRATION.md)** - General Zapier integration info
+- **[Web Frontend Guide](WEB_FRONTEND_GUIDE.md)** - Web app setup and usage
+- **[Testing Guide](TESTING_GUIDE.md)** - How to test all components
+- **[API Key Guide](API_KEY_GUIDE.md)** - API key management
+
 ## Resources
 
 - [RTD Official Website](https://www.rtd-denver.com/)
 - [RTD System Map](https://www.rtd-denver.com/services/system-map)
 - [Google Maps Platform](https://developers.google.com/maps)
 - [GTFS Realtime Reference](https://developers.google.com/transit/gtfs-realtime)
+- [Zapier Platform Docs](https://platform.zapier.com/docs)
 
 ## Contributing
 
